@@ -10,21 +10,27 @@ from matplotlib.backends.backend_pdf import PdfPages
 #------------------------------------------------------------------------------------------------------------------------#
 #defining main function
 def main():
-	#ppdf = PdfPages('parkfieldfigs.pdf')
+	#opening pdf
+	ppdf = PdfPages('parkfieldfigs.pdf')
+	
+	#running calculations
 	evinfo = readcat("ddparkfieldcat.csv")
 	trinfo = calctr(evinfo,magthresh=0.2)
-	pairuncert, ratiouncert = d.bootstrapmedians(evinfo,trinfo)
+	momrats, trrats, distbet = momtrrats(trinfo,ploton=False)
+	pairuncert, ratiouncert = bootstrapmedians(evinfo,trinfo,momrats)
+	
+	#plotting
 	fig = plotruptimes(evinfo,trinfo)
 	fig2 = plotmomtimes(evinfo,trinfo,pairuncert)
-	
-	momrats, trrats, distbet = momtrrats(trinfo,ploton=False)
 	fig3 = plotrats(momrats,trrats,distbet,distthresh=1.,distbins=True)
-	#ppdf.savefig(fig)
-	#ppdf.savefig(fig2)
-	#ppdf.savefig(fig3)
-	#ppdf.close()
-	#plt.show()
-	return evinfo, trinfo, fig, fig2, fig3
+	
+	#saving to pdf and closing
+	ppdf.savefig(fig)
+	ppdf.savefig(fig2)
+	ppdf.savefig(fig3)
+	ppdf.close()
+	plt.show()
+	return evinfo, trinfo, momrats, trrats, distbet, pairuncert, ratiouncert
 	
 #defining function for testing throwing out earthquakes based on a rupture length threshold
 def test():
@@ -121,8 +127,13 @@ def readcat(fname=None):
 	evmagtype = np.array(evmagtype)	
 	
 	#calculating earthquake moment
-	#evmoms = np.multiply(np.power(10,np.divide((evmags+10.7),2./3.)),10.**-7.)
-	evmoms = np.multiply(np.power(10,np.add(np.multiply(evmags,1.5),16.0)),10.**-7) #using new constant from Jess, and the equation 
+	#original constant
+	magconst = 1.5
+	#constant from Jess
+	#magconst = 1.2
+	
+	#getting moments
+	evmoms = np.multiply(np.power(10,np.add(np.multiply(evmags,magconst),16.0)),10.**-7) #using new constant from Jess, and the equation 
 	#direct from Hanks and Kanamori
 	
 	#calculating earthquake rupture size
@@ -1232,13 +1243,12 @@ def momtrrats(trinfo,ploton=False,prnt=True):
 	savtims = trinfo["savtims"]
 	savmags = trinfo["savmags"]
 	savmoms = trinfo["savmoms"]
-	savlats = trinfo["savlats"]
-	savlons = trinfo["savlons"]
+	
 	
 	
 	#calculating radian versions of lats and longs for speed up later
-	radlats = np.radians(savlats)
-	radlons = np.radians(savlons)
+	radlats = np.radians(trinfo["savlats"])
+	radlons = np.radians(trinfo["savlons"])
 	#and also cosine of lats
 	coslats = np.cos(radlats)
 	momrats = []
@@ -1403,7 +1413,7 @@ def momdistbins(ax,trrats,momrats,distbet,dists,ij,mombins,ratiouncert=None,colo
 	
 	elif errorplt is True:
 		#ratiouncert = np.empty([numruns,len(dists),len(mombinsrats)])
-		for kl in xrange(len(mombins)-1):
+		for kl in xrange(len(mombins)):
 			#grabbing the uncertainty out of the bootstrapping results
 			#ij defines the distance bin, kl defines the moment bin
 			if wholecat is False:
@@ -1424,8 +1434,8 @@ def momdistbins(ax,trrats,momrats,distbet,dists,ij,mombins,ratiouncert=None,colo
 			err975 = np.abs(meds[kl]-tempuncerts[highper])
 			
 			#checking for problems with the whole catalogue error
-			if wholecat is True:
-				codeint(locals(),globals())
+			#if wholecat is True:
+			#	codeint(locals(),globals())
 			
 			if err25 == 0.0:
 				err25 = 10**-20
@@ -1735,7 +1745,7 @@ def bootstrapmedians(evinfo,trinfo,momrats,numruns=1000):
 	dists = np.array([0.,50.,100.,250.,500.,750.])
 	
 	#setting number of events to select in each bootstrapping instance
-	nevts = int(len(evtcs)*0.75)
+	nevts = int(len(evtcs)*0.8)
 
 	#looping through the number of times to estimate
 	pairuncert = np.empty([numruns,len(mombins)])
