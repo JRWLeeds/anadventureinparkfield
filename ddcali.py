@@ -233,7 +233,7 @@ class reps:
 		#now need to check whether the locations are within the Parkfield area
 		goodbox = []
 		for i in range(len(self.evinfo["evlats"])):
-			pt = Point(self.evinfo["evlons"][i],evinfo["evlats"][i])
+			pt = Point(self.evinfo["evlons"][i],self.evinfo["evlats"][i])
 			if polygon.contains(pt) is True:
 				goodbox.append(i)
 		goodbox = np.array(goodbox)
@@ -566,11 +566,7 @@ class reps:
 		savmoms = trinfo2["savmoms"]
 		savtims = trinfo2["savtims"]
 		savmags = trinfo2["savmags"]
-
-		#calculating the earthquake moment in N m 
-		#this assumes that all rupture magnitudes are equal to the earthquake magnitude
-		#savmoms = np.multiply(np.power(10,np.add(np.multiply(savmags,1.2),16.0)),10.**-7) #using new constant from Jess, and the equation 
-		#direct from Hanks and Kanamori
+		
 
 		#taking log of moments to make it easier to bin
 		savmomslog = np.log10(savmoms)
@@ -678,67 +674,11 @@ class reps:
 		gradientlog, blah = np.polyfit(mombins[locs2],np.log10(medtims[locs2]),1)
 		print("Linear gradient: "+str(gradient))
 		print("Log-Linear gradient: "+str(gradientlog))
+		
+		
+		
 
-
-
-		plt.show()
-
-	#---------------------------------------------------------------------------------------------------------------------------------------#
-	#plotting sequences with depth versus distance SE, projecting the locations onto a line representing the Parkfield fault
-	def ploteqrupsproject(self,evinfo,lats=None,lons=None):
-		import matplotlib as mpl
-		import matplotlib.cm as cm
-		from matplotlib.patches import Circle,Wedge
-
-		#if lats and lons are not given then use defaults
-		if lats is None and lons is None:
-			#first default area has a few too many sequences
-			#lats = [35.924,35.926]
-			#lons = [-120.473,-120.471]
-
-			#second default area
-			lats = [36.147,36.149]
-			lons = [-120.727,-120.724]
-
-			#zoom in of second set of repeaters
-			lats = [36.148,36.149]
-			lons = [-120.726,-120.724]
-
-		#repeating the longitudes and latitudes to make a square box rather than just two points
-		nlats = [lats[0],lats[1],lats[1],lats[0]]
-		nlons = [lons[0],lons[0],lons[1],lons[1]]
-
-		#identifying events that are within the set box
-		evinfo2 = self.selectarea(nlons,nlats)
-
-		#-----------IDENTIFYING SEQUENCES---------------------------#	
-		#now we need to know which of these form sequences
-		trinfo2 = self.calctr(evinfo=evinfo2,returnvals=True)
-
-		#identifying sequences in the dataset
-		allseqlocs = self.identseq(trinfo2)
-
-		#but first we identify points that appear in multiple sequences
-		#flattening sequence list
-		flatseqs = [item for sublist in allseqlocs for item in sublist]
-		#finding the max index
-		maxidx = np.max(flatseqs)+1
-
-		#now going through each index and counting the number of times it appears in sequences
-		#also saving the index of which sequence it appears in
-		appearseqs = [[] for i in range(maxidx)]
-		#for each eq
-		for i in range(maxidx):
-			#for each sequence
-			for j in range(len(allseqlocs)):
-				#test if the earthquake is in that sequence
-				ix = [n for n, x in enumerate(allseqlocs[j]) if i == x]
-
-				#if it is then add one to its number and save the sequences it appears in
-				if len(ix) != 0:
-					appearseqs[i].append(j)
-
-		#-------------------------------------------------------------#
+		#----------------------------------------------------------------------------------------------------------------#
 		#DEFINING THE FAULT PROJECTION
 		#CURRENTLY DEFAULTS TO THE PARKFIELD SEGMENT
 		#Defining the fault
@@ -853,9 +793,11 @@ class reps:
 
 		#creating legend
 		plt.legend(loc='center right',bbox_to_anchor=(1.,0.5))
+		
+		#showing plots after running the function
 		plt.show()
 
-
+	
 	#---------------------------------------------------------------------------------------------------------------------------------------#
 	#small function to plot positions of repeaters
 	def plotreploc(self,m,ax,evinfo2,appearseqs,colors):
