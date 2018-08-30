@@ -7,6 +7,19 @@ from obspy.core.utcdatetime import UTCDateTime as UTC
 import code
 from matplotlib.backends.backend_pdf import PdfPages
 
+#things that should go into a class as defined variables:
+#-magnitude threshold
+#-location uncertainty
+#-magnitude conversion constant
+#-evinfo, trinfo, momrats, trrats, distbet, pairuncert, ratiouncert
+#-mombins and momratsbins, make sure they're put in the correct functions that use them as well
+#-percent of events to select for the bootstrapping instance
+#-distance bins that I use as well
+#-depth difference threshold
+#-radlats, radlons and coslats to save time for momrats - in fact these should just be calculated in the evinfo function I reckon
+#-anything else I think of while I'm in the process of editing to make this code a class based code
+
+
 #------------------------------------------------------------------------------------------------------------------------#
 #defining main function
 def main():
@@ -22,7 +35,8 @@ def main():
 	#plotting
 	fig = plotruptimes(evinfo,trinfo)
 	fig2 = plotmomtimes(evinfo,trinfo,pairuncert)
-	fig3 = plotrats(momrats,trrats,distbet,distthresh=1.,distbins=True)
+	fig3 = plotrats(momrats,trrats,distbet,ratiouncert,distthresh=1.,distbins=True)
+	plt.show()
 	
 	#saving to pdf and closing
 	ppdf.savefig(fig)
@@ -130,7 +144,7 @@ def readcat(fname=None):
 	#original constant
 	magconst = 1.5
 	#constant from Jess
-	#magconst = 1.2
+	magconst = 1.2
 	
 	#getting moments
 	evmoms = np.multiply(np.power(10,np.add(np.multiply(evmags,magconst),16.0)),10.**-7) #using new constant from Jess, and the equation 
@@ -492,11 +506,11 @@ def ploteqrups(evinfo,lats=None,lons=None):
 	
 	#now going through each index and counting the number of times it appears in sequences
 	#also saving the index of which sequence it appears in
-	appearseqs = [[] for i in xrange(maxidx)]
+	appearseqs = [[] for i in range(maxidx)]
 	#for each eq
-	for i in xrange(maxidx):
+	for i in range(maxidx):
 		#for each sequence
-		for j in xrange(len(allseqlocs)):
+		for j in range(len(allseqlocs)):
 			#test if the earthquake is in that sequence
 			ix = [n for n, x in enumerate(allseqlocs[j]) if i == x]
 			
@@ -516,7 +530,7 @@ def ploteqrups(evinfo,lats=None,lons=None):
 	
 	#make up a set of lines for plotting the legend
 	lines =[]
-	for ij in xrange(len(allseqlocs)):
+	for ij in range(len(allseqlocs)):
 		lines.append(plt.plot(0,0,c=colors[ij],label='Sequence '+str(ij+1)))
 	
 	#creating legend
@@ -567,7 +581,7 @@ def ploteqrups(evinfo,lats=None,lons=None):
 	ix2 = [n for n, x in enumerate(appearseqs) if len(x) !=0]
 	#looping through each earthquake
 	for val in ix2:
-		for jk in xrange(len(trinfo2["evtclist"])):
+		for jk in range(len(trinfo2["evtclist"])):
 			if val == trinfo2["evtclist"][jk]:
 				ax0.plot(np.log10(savmoms[jk]),np.log10(savtims[jk]),'+',c=colors[appearseqs[val][0]])
 				
@@ -595,7 +609,7 @@ def ploteqrups(evinfo,lats=None,lons=None):
 
 					#generating angles and plotting wedges
 					thetas = []
-					for ik in xrange(nseqs):
+					for ik in range(nseqs):
 						theta1 = angle+(ik*angit)
 						theta2 = angle+((ik+1)*angit)
 						pltwedge = Wedge([np.log10(savmoms[jk]),np.log10(savtims[jk])],radius,theta1,theta2,fill=False,edgecolor=colors[appearseqs[val][ik]],zorder=2)
@@ -627,7 +641,7 @@ def ploteqrups(evinfo,lats=None,lons=None):
 	
 	#make up a set of lines for plotting the legend
 	lines =[]
-	for ij in xrange(len(allseqlocs)):
+	for ij in range(len(allseqlocs)):
 		lines.append(ax0.plot(0,0,c=colors[ij],label='Sequence '+str(ij+1)))
 	
 	
@@ -692,11 +706,11 @@ def ploteqrupsproject(evinfo,lats=None,lons=None):
 	
 	#now going through each index and counting the number of times it appears in sequences
 	#also saving the index of which sequence it appears in
-	appearseqs = [[] for i in xrange(maxidx)]
+	appearseqs = [[] for i in range(maxidx)]
 	#for each eq
-	for i in xrange(maxidx):
+	for i in range(maxidx):
 		#for each sequence
-		for j in xrange(len(allseqlocs)):
+		for j in range(len(allseqlocs)):
 			#test if the earthquake is in that sequence
 			ix = [n for n, x in enumerate(allseqlocs[j]) if i == x]
 			
@@ -731,7 +745,7 @@ def ploteqrupsproject(evinfo,lats=None,lons=None):
 	projlats = []
 	projlons = []
 	projlocs = []
-	for ik in xrange(len(evlats)):
+	for ik in range(len(evlats)):
 		#calculate the position to project this earthquake onto the fault
 		totdiff = np.sqrt(np.add(np.power(np.abs(evlats[ik]-newlats),2.),np.power(np.abs(evlons[ik]-newlons),2.)))
 		
@@ -788,7 +802,7 @@ def ploteqrupsproject(evinfo,lats=None,lons=None):
 			
 			#generating angles and plotting wedges
 			thetas = []
-			for jk in xrange(nseqs):
+			for jk in range(nseqs):
 				theta1 = angle+(jk*angit)
 				theta2 = angle+((jk+1)*angit)
 				pltwedge = Wedge([projlocs[val][0],evinfo2["evdeps"][val]],radius,theta1,theta2,fill=False,edgecolor=colors[appearseqs[val][jk]],zorder=2)
@@ -796,7 +810,7 @@ def ploteqrupsproject(evinfo,lats=None,lons=None):
 
 	#make up a set of lines for plotting the legend
 	lines =[]
-	for ij in xrange(len(allseqlocs)):
+	for ij in range(len(allseqlocs)):
 		lines.append(plt.plot(0,0,c=colors[ij],label='Sequence '+str(ij+1)))
 	
 	
@@ -868,7 +882,7 @@ def plotreploc(m,ax,evinfo2,appearseqs,colors):
 			
 			#generating angles and plotting wedges
 			thetas = []
-			for jk in xrange(nseqs):
+			for jk in range(nseqs):
 				theta1 = angle+(jk*angit)
 				theta2 = angle+((jk+1)*angit)
 				pltwedge = Wedge([x,y],y2-y,theta1,theta2,fill=False,edgecolor=colors[appearseqs[val][jk]],zorder=2)
@@ -883,7 +897,7 @@ def identseq(trinfo):
 	glocs=  trinfo["gloclist"]
 
 	#looping through each pair of eqs
-	for i in xrange(len(evtcs)):
+	for i in range(len(evtcs)):
 		#setting up list to save a sequence in
 		seqlocs = []
 		seqlocs.append(evtcs[i])
@@ -904,7 +918,7 @@ def identseq(trinfo):
 		#save the whole sequence to the array
 		#but first cheching the sequence isn't a subset of a sequence we've already identified
 		dontsave = False
-		for j in xrange(len(allseqlocs)):
+		for j in range(len(allseqlocs)):
 			if set(seqlocs).issubset(allseqlocs[j]):
 				dontsave = True
 
@@ -1258,7 +1272,7 @@ def momtrrats(trinfo,ploton=False,prnt=True):
 	distbet = []
 	
 	#now going through each moment and time, and computing the ratios
-	for i in xrange(0,len(savtims)):
+	for i in range(0,len(savtims)):
 		#if prnt is True:
 		#	print('Event '+str(i+1)+' of '+str(len(savtims)))
 		
@@ -1269,7 +1283,7 @@ def momtrrats(trinfo,ploton=False,prnt=True):
 		dists = np.multiply(dists,1000.) #to m
 		
 		#saving to list
-		for j in xrange(len(tmomrats)):
+		for j in range(len(tmomrats)):
 			momrats.append(tmomrats[j])
 			trrats.append(ttrrats[j])
 			distbet.append(dists[j])
@@ -1344,10 +1358,10 @@ def plotrats(momrats,trrats,distbet,ratiouncert=None,distthresh=100000.,distbins
 	twelfthvals = np.power(xvals,1./12.)
 	
 	#plotting the points for each earthquake
-	if logplot is False:
-		plt.scatter(momrats[close],trrats[close],c=distbet[close],marker='.',cmap=plt.get_cmap('autumn'),alpha=0.01)
-	elif logplot is True:
-		plt.scatter(momrats[close],trrats[close],c=distbet[close],marker='.',cmap=plt.get_cmap('autumn'),norm=mpl.colors.LogNorm(),alpha=0.01)
+	#if logplot is False:
+	#	plt.scatter(momrats[close],trrats[close],c=distbet[close],marker='.',cmap=plt.get_cmap('autumn'),alpha=0.01)
+	#elif logplot is True:
+	#	plt.scatter(momrats[close],trrats[close],c=distbet[close],marker='.',cmap=plt.get_cmap('autumn'),norm=mpl.colors.LogNorm(),alpha=0.01)
 	plt.plot(xvals,thirdvals,'g',label='M0 to third')
 	plt.plot(xvals,sixthvals,'b',label='M0 to sixth')
 	plt.plot(xvals,twelfthvals,'c',label='M0 to twelfth')
@@ -1361,7 +1375,7 @@ def plotrats(momrats,trrats,distbet,ratiouncert=None,distthresh=100000.,distbins
 	if distbins is True:
 		if errorplot is True:
 			#median calculation and plotting goes here
-			for jk in xrange(len(dists)-1):
+			for jk in range(len(dists)-1):
 				momdistbins(ax,trrats,momrats,distbet,dists,jk,mombins,ratiouncert,colour=col_cycle[jk])
 			
 			#calculating the median of the entire dataset
@@ -1369,7 +1383,7 @@ def plotrats(momrats,trrats,distbet,ratiouncert=None,distthresh=100000.,distbins
 		
 		elif errorplot is False:
 			#median calculation and plotting goes here
-			for jk in xrange(len(dists)-1):
+			for jk in range(len(dists)-1):
 				momdistbins(ax,trrats,momrats,distbet,dists,jk,mombins,errorplt=False,colour=col_cycle[jk])
 
 			#calculating the median of the entire dataset
@@ -1413,7 +1427,7 @@ def momdistbins(ax,trrats,momrats,distbet,dists,ij,mombins,ratiouncert=None,colo
 	
 	elif errorplt is True:
 		#ratiouncert = np.empty([numruns,len(dists),len(mombinsrats)])
-		for kl in xrange(len(mombins)):
+		for kl in range(len(mombins)):
 			#grabbing the uncertainty out of the bootstrapping results
 			#ij defines the distance bin, kl defines the moment bin
 			if wholecat is False:
@@ -1592,7 +1606,7 @@ def plotmomtimes(evinfo,trinfo,pairuncert):
 	#plotting each median with the appropriate uncertainty
 	#looping through each moment bin and plotting the median and error estimate
 	
-	for kl in xrange(len(locs2)):
+	for kl in range(len(locs2)):
 		#grabbing the uncertainty out of the bootstrapping results
 		tempuncerts = np.sort(pairuncert[:,locs2[kl]])
 		
@@ -1751,7 +1765,7 @@ def bootstrapmedians(evinfo,trinfo,momrats,numruns=1000):
 	pairuncert = np.empty([numruns,len(mombins)])
 	ratiouncert = np.empty([numruns,len(dists),len(mombinsrats)])
 	templist = []
-	for i in xrange(numruns):
+	for i in range(numruns):
 		print('Bootstrap run '+str(i+1)+' of '+str(numruns))
 		#selecting a new set of events
 		newevtc = np.sort(np.random.choice(evtcs,nevts,replace=False))
@@ -1773,7 +1787,7 @@ def bootstrapmedians(evinfo,trinfo,momrats,numruns=1000):
 		temparr = np.empty([len(dists),len(mombinsrats)])
 		
 		#now calculating the medians/modes for the ratios in moment bins
-		for ij in xrange(len(dists)-1):
+		for ij in range(len(dists)-1):
 			#finding distance locations
 			distlocs = np.argwhere(np.logical_and(distbet2>=dists[ij],distbet2<dists[ij+1])==True).flatten()
 			
