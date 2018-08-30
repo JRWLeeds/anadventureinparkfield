@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from obspy.core.utcdatetime import UTCDateTime as UTC
 import code
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib import gridspec
 
 #things that should go into a class as defined variables:
 #-evinfo, trinfo, momrats, trrats, distbet, pairuncert, ratiouncert
@@ -904,7 +905,7 @@ class reps:
 	#as in for each event I identify the next event within the rupture length and save the time to that next event
 	#in the other function I was taking the time difference between all events
 	#also added option to filter by the magnitude limit as well
-	def calctr(self,maglim=True,prnt=True,returnvals=False,evinfo=None):
+	def calctr(self,returnvals=False,evinfo=None):
 		#Function works in metres
 
 		#extracting for ease of use
@@ -934,7 +935,7 @@ class reps:
 			
 			
 		#getting km version of evrups
-		evrupskm= evrups/1000.
+		evrupskm= np.divide(evrups,1000.)
 		
 
 		#setting up saving arrays
@@ -959,8 +960,6 @@ class reps:
 		#so now for each earthquake we need to find the time to the next eq within the rupture radius
 		#and earthquakes have to be within 1 magnitude unit
 		for evtc in range(len(evrups)-1):
-			#if prnt is True:
-			#	print(str(evtc+1)+' of '+str(len(evrups)-1))
 			#first calculating the distance between this event and all the others in the catalogue
 			dists = self.distcalc(radlats[evtc],radlons[evtc],radlats[evtc+1:],radlons[evtc+1:],coslats[evtc],coslats[evtc+1:]) #remaining eqs in catalogue
 
@@ -1055,7 +1054,7 @@ class reps:
 		
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#version of calctr where all events with rupture lengths below 50m are eliminated and we look for events within 20m
-	def checkcalctr(self,maglim=True,rupthresh=0.05,returnvals=False):
+	def checkcalctr(self,rupthresh=0.05,returnvals=False):
 		#savrups, savtims, eachrup, medtims = o.calctr(evinfo)
 		#Function works in metres
 
@@ -1072,13 +1071,9 @@ class reps:
 		coslats = self.evinfo["coslats"]
 		
 		#getting km version of evrups
-		evrupskm= evrups/1000.
+		evrupskm= np.divide(evrups,1000.)
 
-		#calculating radian versions of lats and longs for speed up later
-		radlats = np.radians(evlats)
-		radlons = np.radians(evlons)
-		#and also cosine of lats
-		coslats = np.cos(radlats)
+		
 
 		#setting up saving arrays
 		savrups = []
@@ -1250,8 +1245,8 @@ class reps:
 
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#comparing the moment and recurrence time ratios for each earthquake pair
-	def momtrrats(self,ploton=False,prnt=True,trinfo=None,returnvals=False):
-		import time
+	def momtrrats(self,ploton=False,trinfo=None,returnvals=False):
+		
 		#pulling out some results I'm going to use
 		if trinfo is None:
 			savtims = self.trinfo["savtims"]
@@ -1271,8 +1266,8 @@ class reps:
 
 		#setting up empty lists
 		momrats = []
-		mag1list = []
-		mag2list = []
+		#mag1list = []
+		#mag2list = []
 		trrats = []
 		distbet = []
 
@@ -1295,30 +1290,7 @@ class reps:
 
 		#plotting histograms of results in distance bins if option is on
 		#if ploton is True:
-		#	mom1list = np.array(mom1list)
-		#	mom2list = np.array(mom2list)
-		#	mag1list = np.array(mag1list)
-		#	mag2list = np.array(mag2list)
-		#	dists = np.array([0.,50.,100.,250.,500.,750.])
-		#	for ij in range(len(dists)-1):
-		#		#finding values in that distance bin
-		#		distlocs = np.argwhere(np.logical_and(distbet>=dists[ij],distbet<dists[ij+1])==True).flatten()
-		#
-		#		#taking the magnitudes of those eqs
-		#		tmag1 = mag1list[distlocs]
-		#		tmag2 = mag2list[distlocs]
-		#		
-		#		#setting up magnitude bins for plotting
-		#		magbins = np.arange(0.5,7.0,0.1)
-		#		
-		#		#plotting a histogram for this distance bin
-		#		fig20 = plt.figure(20,figsize=(12,8))
-		#		plt.hist(tmag1,bins=magbins,alpha=0.5,label='Mag 1')
-		#		plt.hist(tmag2,bins=magbins,alpha=0.5,label='Mag 2')
-		#		plt.title('Distbin = '+str(dists[ij])+' - '+str(dists[ij+1]))
-		#		plt.xlabel('Magnitudes')
-		#		plt.legend()
-		#		plt.show()
+		#	self.momtrratsplot(mag1list,mag2list,distbet)
 
 		#and outputting them
 		momrats = np.array(momrats)
@@ -1329,25 +1301,46 @@ class reps:
 			self.momrats = momrats
 			self.trrats = trrats
 			self.distbet = distbet
+			
+			#getting moment bins in the log domain
+			stval = round(np.log10(np.min(self.momrats))-0.05,1)
+			enval = round(np.log10(np.max(self.momrats))+0.05,1)
+			self.momratsbins = np.arange(stval,enval,0.5)
 		else:
 			return momrats, trrats, distbet
+	
+	
+	#-----------------------------------------------------------------------------------------------------------------------------------#
+	#for cases when we want to plot the results for momtrrats to check for errors
+	def momtrratsplot(self,mag1list,mag2list,distbet)
+		#setting up the magnitude value lists
+		mag1list = np.array(mag1list)
+		mag2list = np.array(mag2list)
 		
+		for ij in range(len(dists)-1):
+			#finding values in that distance bin
+			distlocs = np.argwhere(np.logical_and(distbet>=self.distbins[ij],distbet<self.distbins[ij+1])==True).flatten()
+
+			#taking the magnitudes of those eqs
+			tmag1 = mag1list[distlocs]
+			tmag2 = mag2list[distlocs]
+
+			#setting up magnitude bins for plotting
+			magbins = np.arange(0.5,7.0,0.1)
+
+			#plotting a histogram for this distance bin
+			fig20 = plt.figure(20,figsize=(12,8))
+			plt.hist(tmag1,bins=magbins,alpha=0.5,label='Mag 1')
+			plt.hist(tmag2,bins=magbins,alpha=0.5,label='Mag 2')
+			plt.title('Distbin = '+str(self.distbins[ij])+' - '+str(self.distbins[ij+1]))
+			plt.xlabel('Magnitudes')
+			plt.legend()
+			plt.show()	
 		
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#plotting the results of momrats and trrats
-	def plotrats(self,distbins=False, logplot=False,errorplot=True):
-		#setting up binning for moments and distances
-		#NEED TO EXPERIMENT WITH THESE, THEY WILL PROBABLY CHANGE
-		#mombins = np.array([0.001,0.005,0.01,0.05,0.1,0.5,1,5,10,50,100,1000])
-		#using wider moment bins
-		#mombins = np.array([0.001,0.01,0.1,1,10,100,1000])
-
-		#getting moment bins in the log domain
-		stval = round(np.log10(np.min(self.momrats))-0.05,1)
-		enval = round(np.log10(np.max(self.momrats))+0.05,1)
-		mombins = np.arange(stval,enval,0.5)
-		
-
+	#PRETTY SURE THE ERRORPLOT=FALSE OPTION DOES NOT WORK ON THIS PLOT
+	def plotrats(self,logplot=False,errorplot=True):
 		#putting distance threshold in metres
 		distthresh = self.distthresh*1000.
 
@@ -1381,22 +1374,22 @@ class reps:
 		#also getting the default color cycle
 		col_cycle = [p['color'] for p in plt.rcParams['axes.prop_cycle']]
 
-		if distbins is True:
-			if errorplot is True:
-				#median calculation and plotting goes here
-				for jk in range(len(dists)-1):
-					self.momdistbins(ax,jk,mombins,colour=col_cycle[jk])
+		
+		if errorplot is True:
+			#median calculation and plotting goes here
+			for jk in range(len(dists)-1):
+				self.momdistbins(ax,jk,colour=col_cycle[jk])
 
-				#calculating the median of the entire dataset
-				self.momdistbins(ax,0,mombins,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
+			#calculating the median of the entire dataset
+			self.momdistbins(ax,0,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
 
-			elif errorplot is False:
-				#median calculation and plotting goes here
-				for jk in range(len(dists)-1):
-					self.momdistbins(ax,jk,mombins,errorplt=False,colour=col_cycle[jk])
+		elif errorplot is False:
+			#median calculation and plotting goes here
+			for jk in range(len(dists)-1):
+				self.momdistbins(ax,jk,errorplt=False,colour=col_cycle[jk])
 
-				#calculating the median of the entire dataset
-				self.momdistbins(ax,0,mombins,errorplt=False,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
+			#calculating the median of the entire dataset
+			self.momdistbins(ax,0,errorplt=False,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
 
 
 		#rest of plotting
@@ -1414,7 +1407,7 @@ class reps:
 
 	#-------------------------------------------------------------------------------------------------------------#
 	#function to find locations that satisfy the moment and distance bins
-	def momdistbins(self,ax,ij,mombins,colour=None,errorplt=True,wholecat=False,distbins=None):
+	def momdistbins(self,ax,ij,colour=None,errorplt=True,wholecat=False,distbins=None):
 		#grabbing the relevant distance bins
 		if distbins is None:
 			distbins = self.distbins
@@ -1433,16 +1426,16 @@ class reps:
 
 
 		#finding the mode/median trrats for the distance/moment bins
-		meds = self.modefunc(np.log10(self.momrats[distlocs]),np.log10(self.trrats[distlocs]),mombins,ploton=False,getmode=True)
+		meds = self.modefunc(np.log10(self.momrats[distlocs]),np.log10(self.trrats[distlocs]),self.momratsbins,ploton=False,getmode=True)
 		meds = np.power(10,meds)#getting the value out of log
 
 		#plotting results
 		if errorplt is False:
-			plt.plot(np.power(10,mombins),meds,'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
+			plt.plot(np.power(10,self.momratsbins),meds,'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
 
 		elif errorplt is True:
 			#ratiouncert = np.empty([numruns,len(dists),len(mombinsrats)])
-			for kl in range(len(mombins)):
+			for kl in range(len(self.momratsbins)):
 				#grabbing the uncertainty out of the bootstrapping results
 				#ij defines the distance bin, kl defines the moment bin
 				if wholecat is False:
@@ -1480,16 +1473,15 @@ class reps:
 				shiftnum = np.random.choice(np.arange(-0.1,0.1,0.001))
 
 				#plotting the error bar with x position shifted
-				ax.errorbar(np.power(10,mombins[kl]+shiftnum),meds[kl],yerr=np.array([[err25],[err975]]),fmt='s',color=colour)
+				ax.errorbar(np.power(10,self.momratsbins[kl]+shiftnum),meds[kl],yerr=np.array([[err25],[err975]]),fmt='s',color=colour)
 
 		#plotting value to go in the legend
-		plt.plot(np.power(10,mombins[kl]+shiftnum),meds[kl],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
+		plt.plot(np.power(10,self.momratsbins[kl]+shiftnum),meds[kl],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
 
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#plotting the ruptures versus the times
 	def plotruptimes(self):
-		from matplotlib import gridspec
-
+		
 		#extracting
 		evrups = self.evinfo["evrups"]
 		savrups = self.trinfo["savrups"]
@@ -1566,8 +1558,7 @@ class reps:
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#plotting earthquake moments versus the times
 	def plotmomtimes(self):
-		from matplotlib import gridspec
-
+		
 		#extracting
 		evrups = self.evinfo["evrups"]
 		savrups = self.trinfo["savrups"]
@@ -1753,9 +1744,7 @@ class reps:
 
 		#moment and distance bins for the ratios
 		#getting moment bins in the log domain
-		stval = round(np.log10(np.min(self.momrats))-0.05,1)
-		enval = round(np.log10(np.max(self.momrats))+0.05,1)
-		mombinsrats = np.arange(stval,enval,0.5)
+		mombinsrats = self.momratsbins
 		
 
 		#setting number of events to select in each bootstrapping instance
