@@ -1497,17 +1497,17 @@ class reps:
 		#we want to calculate the weighted least squares fit of each distance
 		#bin to each of the 1/3 1/6 relations.
 		#first need to calculate the relations for the moment bins that I actually use
-		thirdrely = np.power(self.momratsbins,1./3.)
-		sixthrely = np.power(self.momratsbins,1./6.)
-		twelfthrely = np.power(self.momratsbins,1./12.)
+		thirdrely = np.power(np.power(10,self.momratsbins),1./3.)
+		sixthrely = np.power(np.power(10,self.momratsbins),1./6.)
+		twelfthrely = np.power(np.power(10,self.momratsbins),1./12.)
 		
 		#setting up empty array to save the results of wls in for each distance bins and each relation
-		wlsarr = np.empty([len(self.distbins),3.])
+		wlsarr = np.empty([3.,len(self.distbins)])
 		
 		
 		#We loop through each distance bin
 		for jk in range(len(self.distbins)-1):
-			distlocs = np.argwhere(np.logical_and(self.distbet>=self.distbins[ij],self.distbet<self.distbins[ij+1])==True).flatten()
+			distlocs = np.argwhere(np.logical_and(self.distbet>=self.distbins[jk],self.distbet<self.distbins[jk+1])==True).flatten()
 
 			#finding the mode/median trrats for the distance/moment bins
 			meds = self.modefunc(np.log10(self.momrats[distlocs]),np.log10(self.trrats[distlocs]),self.momratsbins,getmode=True)
@@ -1520,23 +1520,26 @@ class reps:
 			weights = []
 			for kl in range(len(self.momratsbins)):
 				#grabbing the section of the uncertainties
-				reluncert = tempuncerts[kl]
+				reluncert = tempuncerts[:,kl]
 				
 				#calculating the variance and thus grabbing the weight
-				weights.append(1./np.var(reluncert))
+				weights.append(1./np.nanvar(reluncert))
 			
 			#now calculating the weighted least squares
-			thirdwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
-			sixthwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
-			twelfthwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
+			thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
+			sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
+			twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
 			thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
 			sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
 			twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
 			
+			if jk == 2:
+				self.codeint(locals(),globals())
+			
 			#saving the results to an array
-			wlsarr[jk,0] = thirdwls
-			wlsarr[jk,1] = sixthwls
-			wlsarr[jk,2] = twelfthwls
+			wlsarr[0,jk] = thirdwls
+			wlsarr[1,jk] = sixthwls
+			wlsarr[2,jk] = twelfthwls
 		
 		
 		#now doing the same thing for the entire catalogue using the maximum distance bin
@@ -1553,23 +1556,23 @@ class reps:
 		weights = []
 		for kl in range(len(self.momratsbins)):
 			#grabbing the section of the uncertainties
-			reluncert = tempuncerts[kl]
+			reluncert = tempuncerts[:,kl]
 
 			#calculating the variance and thus grabbing the weight
-			weights.append(1./np.var(reluncert))
+			weights.append(1./np.nanvar(reluncert))
 
 		#now calculating the weighted least squares
-		thirdwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
-		sixthwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
-		twelfthwrest = np.sum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
+		thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
+		sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
+		twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
 		thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
 		sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
 		twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
 
 		#saving the results to an array
-		wlsarr[-1,0] = thirdwls
-		wlsarr[-1,1] = sixthwls
-		wlsarr[-1,2] = twelfthwls
+		wlsarr[0,-1] = thirdwls
+		wlsarr[1,-1] = sixthwls
+		wlsarr[2,-1] = twelfthwls
 		
 		self.wlsarr = wlsarr
 	
