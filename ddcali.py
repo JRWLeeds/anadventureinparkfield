@@ -29,6 +29,8 @@ class reps:
 		#setting up distance bins to use in ratios plotting
 		self.distbins = np.array([0.,50.,100.,250.,500.,750.])
 		
+		#and defining the spacing to use for the moment ratio bins
+		self.momratsbinsspacing = 0.5
 		
 		
 		
@@ -1265,13 +1267,12 @@ class reps:
 
 		#setting up empty lists
 		momrats = []
-		#mag1list = []
-		#mag2list = []
 		trrats = []
 		distbet = []
-
+		#mag1list = []
+		#mag2list = []
 		#now going through each moment and time, and computing the ratios
-		for i in range(0,len(savtims)):
+		for i in range(len(savtims)):
 			#calculating ratios and distances
 			tmomrats = np.divide(savmoms[i],savmoms[i+1:])
 			ttrrats = np.divide(savtims[i],savtims[i+1:])
@@ -1286,7 +1287,7 @@ class reps:
 				#mag1list.append(savmags[i])
 				#mag2list.append(savmags[i+1+j])
 
-
+		
 		#plotting histograms of results in distance bins if option is on
 		#if ploton is True:
 		#	self.momtrratsplot(mag1list,mag2list,distbet)
@@ -1297,7 +1298,9 @@ class reps:
 		distbet = np.array(distbet)
 		
 		#outputting results
-		if returnvals is False:
+		if returnvals is True:
+			return momrats, trrats, distbet
+		elif returnvals is False:
 			self.momrats = momrats
 			self.trrats = trrats
 			self.distbet = distbet
@@ -1305,9 +1308,8 @@ class reps:
 			#getting moment bins in the log domain
 			stval = round(np.log10(np.min(momrats))-0.05,1)
 			enval = round(np.log10(np.max(momrats))+0.05,1)
-			self.momratsbins = np.arange(stval,enval,1.0)
-		else:
-			return momrats, trrats, distbet
+			self.momratsbins = np.arange(stval,enval,self.momratsbinsspacing)
+		
 	
 	
 	#-----------------------------------------------------------------------------------------------------------------------------------#
@@ -1341,8 +1343,7 @@ class reps:
 	#plotting the results of momrats and trrats
 	#PRETTY SURE THE ERRORPLOT=FALSE OPTION DOES NOT WORK ON THIS PLOT
 	def plotrats(self,logplot=False,errorplot=True,zoom=True):
-		import pickle
-		import io
+		
 		#putting distance threshold in metres
 		distthresh = self.distthresh*1000.
 
@@ -1466,7 +1467,7 @@ class reps:
 				#making the errors for plotting
 				err25 = np.abs(meds[kl]-tempuncerts[lowper])
 				err975 = np.abs(meds[kl]-tempuncerts[highper])
-
+				self.codeint(locals(),globals())
 				#checking for problems with the whole catalogue error
 				#if wholecat is True:
 				#	codeint(locals(),globals())
@@ -1493,6 +1494,10 @@ class reps:
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#calculating the weighted least squares values for each different distance and moment bin
 	def weightedls(self):
+		#from scipy.stats.distributions.chi2 import sf as chi2sf #python3 version
+		from scipy.stats import chisqprob as chi2sf #python 2.7 version
+		
+		
 		#must be run after bootstrapmedians as it requires the values from that function
 		#we want to calculate the weighted least squares fit of each distance
 		#bin to each of the 1/3 1/6 relations.
@@ -1502,8 +1507,8 @@ class reps:
 		twelfthrely = np.power(np.power(10,self.momratsbins),1./12.)
 		
 		#setting up empty array to save the results of wls in for each distance bins and each relation
-		wlsarr = np.empty([3.,len(self.distbins)])
-		
+		wlsarr = np.empty([3,len(self.distbins)])
+		pvalsarr = np.empty([3,len(self.distbins)])
 		
 		#We loop through each distance bin
 		for jk in range(len(self.distbins)-1):
@@ -1525,7 +1530,7 @@ class reps:
 				#calculating the variance and thus grabbing the weight
 				weights.append(1./np.nanvar(reluncert))
 			
-			#now calculating the weighted least squares
+			#now calculating the weighted least squares, or specifically the chi squared statistic
 			thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
 			sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
 			twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
@@ -1533,14 +1538,18 @@ class reps:
 			sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
 			twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
 			
-			if jk == 2:
-				self.codeint(locals(),globals())
+			#if jk == 2:
+			#	self.codeint(locals(),globals())
 			
 			#saving the results to an array
 			wlsarr[0,jk] = thirdwls
 			wlsarr[1,jk] = sixthwls
 			wlsarr[2,jk] = twelfthwls
-		
+			
+			#and calculating the pvalue and saving it
+			pvalsarr[0,jk] = chi2sf(thirdwls,len(meds)-1)
+			pvalsarr[1,jk] = chi2sf(sixthwls,len(meds)-1)
+			pvalsarr[2,jk] = chi2sf(twelfthwls,len(meds)-1)
 		
 		#now doing the same thing for the entire catalogue using the maximum distance bin
 		distlocs = np.argwhere(np.logical_and(self.distbet>=0.0,self.distbet<5000000.)==True).flatten()
@@ -1573,8 +1582,12 @@ class reps:
 		wlsarr[0,-1] = thirdwls
 		wlsarr[1,-1] = sixthwls
 		wlsarr[2,-1] = twelfthwls
+		pvalsarr[0,-1] = chi2sf(thirdwls,len(meds)-1)
+		pvalsarr[1,-1] = chi2sf(sixthwls,len(meds)-1)
+		pvalsarr[2,-1] = chi2sf(twelfthwls,len(meds)-1)
 		
 		self.wlsarr = wlsarr
+		self.pvalsarr = pvalsarr
 	
 	
 	#-----------------------------------------------------------------------------------------------------------------------------------#
@@ -1791,23 +1804,23 @@ class reps:
 			#find the maximum location of the bins
 			tloc = np.argwhere(tn==np.max(tn)).flatten()
 
-			#testing for where the mode is over several data points
-			if len(tloc) > 1:
-				#just take the median over the bins to pick a middle value
-				tmode = np.median([tbins[tloc[0]],tbins[tloc[-1]+1]])
-
 
 			#testing for when there are no data points
 			if tn[tloc[0]] != 0:
 				#now finding the mode of the histogram
 				tmode = np.median([tbins[tloc],tbins[tloc+1]])
-			else:
+			else: #when there are no data points
 				tmode = np.nan
 
 			#and if there is only one data point then take that value
 			if len(dlocs) == 1:
 				tmode = var2[dlocs[0]]
-
+			
+			#testing for where the mode is over several bins
+			if len(tloc) > 1:
+				#just take the median over the bins to pick a middle value
+				tmode = np.median([tbins[tloc[0]],tbins[tloc[-1]+1]])
+				
 			#plotting for testing
 			#if ploton is True:	
 			#	plt.figure(100)
@@ -1840,10 +1853,6 @@ class reps:
 		stval = round(np.min(savmomslog)-0.05,1)
 		enval = round(np.max(savmomslog)+0.05,1)
 		mombins = np.arange(stval,enval,0.5)
-
-		#moment and distance bins for the ratios
-		#getting moment bins in the log domain
-		momratsbins = self.momratsbins
 		
 
 		#setting number of events to select in each bootstrapping instance
@@ -1851,13 +1860,15 @@ class reps:
 
 		#looping through the number of times to estimate
 		pairuncert = np.empty([numruns,len(mombins)])
-		ratiouncert = np.empty([numruns,len(self.distbins),len(momratsbins)])
-		templist = []
+		ratiouncert = np.empty([numruns,len(self.distbins),len(self.momratsbins)])
+		nevtsav = np.empty([numruns,nevts])
 		for i in range(numruns):
 			print('Bootstrap run '+str(i+1)+' of '+str(numruns))
 			#selecting a new set of events
 			newevtc = np.sort(np.random.choice(evtcs,nevts,replace=False))
-
+			
+			#saving the new set of events to help me figure out whats going on with the uncertainties
+			nevtsav[i] = newevtc
 
 			#recreating evinfo but only with these new events
 			evinfo2 = {"evid":self.evinfo["evid"][newevtc],"evdates":self.evinfo["evdates"][newevtc],"evlats":self.evinfo["evlats"][newevtc],
@@ -1873,7 +1884,7 @@ class reps:
 			medtims2 = self.modefunc(np.log10(trinfo2["savmoms"]),trinfo2["savtims"],mombins)
 
 			#setting up empty array to save the results for the medians
-			temparr = np.empty([len(self.distbins),len(momratsbins)])
+			temparr = np.empty([len(self.distbins),len(self.momratsbins)])
 
 			#now calculating the medians/modes for the ratios in moment bins
 			for ij in range(len(self.distbins)-1):
@@ -1881,13 +1892,15 @@ class reps:
 				distlocs = np.argwhere(np.logical_and(distbet2>=self.distbins[ij],distbet2<self.distbins[ij+1])==True).flatten()
 
 				#getting the mode/median
-				meds = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),momratsbins)
+				meds = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),self.momratsbins)
 				meds = np.power(10,meds)#getting the value out of log
+				
+				
 				temparr[ij] = meds
 
 			#running the same process for a distance bin including the entire dataset
 			distlocs = np.argwhere(np.logical_and(distbet2>=0.0,distbet2<50000000.0)==True).flatten()
-			medswholecat = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),momratsbins)
+			medswholecat = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),self.momratsbins)
 			medswholecat = np.power(10,medswholecat)
 			temparr[-1] = medswholecat
 
@@ -1898,6 +1911,7 @@ class reps:
 
 		self.pairuncert = pairuncert
 		self.ratiouncert = ratiouncert
+		self.nevtsav = nevtsav
 
 
 	#------------------------------------------------------------------------------------------------------------------------------------#
