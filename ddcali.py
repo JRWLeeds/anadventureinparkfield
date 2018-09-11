@@ -1445,7 +1445,6 @@ class reps:
 		
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#plotting the results of momrats and trrats
-	#PRETTY SURE THE ERRORPLOT=FALSE OPTION DOES NOT WORK ON THIS PLOT
 	def plotrats(self,logplot=False,errorplot=True,zoom=True):
 		
 		#putting distance threshold in metres
@@ -1477,7 +1476,7 @@ class reps:
 		
 		#calculating the weighted least squares error on each of the distance bins for each of the
 		#three possible relations
-		self.weightedls()
+		#self.weightedls()
 		
 		
 		#get the current axes
@@ -1486,6 +1485,8 @@ class reps:
 		#also getting the default color cycle
 		col_cycle = [p['color'] for p in plt.rcParams['axes.prop_cycle']]
 
+		#setting up empty array for saving the gradients of each distance bin
+		self.actgradientarr = np.empty([len(self.distbins)])
 		
 		if errorplot is True:
 			#median calculation and plotting goes here
@@ -1498,10 +1499,10 @@ class reps:
 		elif errorplot is False:
 			#median calculation and plotting goes here
 			for jk in range(len(self.distbins)-1):
-				self.momdistbins(ax,jk,errorplt=False,colour=col_cycle[jk])
+				self.momdistbins(ax,jk,errorplot=False,colour=col_cycle[jk])
 
 			#calculating the median of the entire dataset
-			self.momdistbins(ax,0,errorplt=False,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
+			self.momdistbins(ax,0,errorplot=False,colour='k',wholecat=True,distbins=np.array([0.0,50000000.0]))
 
 
 		#rest of plotting
@@ -1525,7 +1526,7 @@ class reps:
 
 	#-------------------------------------------------------------------------------------------------------------#
 	#function to find locations that satisfy the moment and distance bins
-	def momdistbins(self,ax,ij,colour=None,errorplt=True,wholecat=False,distbins=None):
+	def momdistbins(self,ax,ij,colour=None,errorplot=True,wholecat=False,distbins=None):
 		#grabbing the relevant distance bins
 		if distbins is None:
 			distbins = self.distbins
@@ -1546,12 +1547,23 @@ class reps:
 		#finding the mode/median trrats for the distance/moment bins
 		meds = self.modefunc(np.log10(self.momrats[distlocs]),np.log10(self.trrats[distlocs]),self.momratsbins,ploton=False,getmode=True)
 		meds = np.power(10,meds)#getting the value out of log
-
+		
+		#grabbing the gradient for this distance bin
+		logmeds = np.log10(meds)
+		gradient, c = np.polyfit(self.momratsbins[np.isfinite(logmeds)],logmeds[np.isfinite(logmeds)],1)
+		if wholecat is False:
+			self.actgradientarr[ij] = gradient
+		else:
+			self.actgradientarr[-1] = gradient
+		
+		#setting initial value of shiftnum
+		shiftnuminit = np.random.choice(np.arange(-0.1,0.1,0.001))
+		
 		#plotting results
-		if errorplt is False:
+		if errorplot is False:
 			plt.plot(np.power(10,self.momratsbins),meds,'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
 
-		elif errorplt is True:
+		elif errorplot is True:
 			for kl in range(len(self.momratsbins)):
 				#grabbing the uncertainty out of the bootstrapping results
 				#ij defines the distance bin, kl defines the moment bin
@@ -1588,16 +1600,21 @@ class reps:
 				#selecting a random number from a generator to shift the x position of the point by 
 				#se we can see the medians of all the bins
 				shiftnum = np.random.choice(np.arange(-0.1,0.1,0.001))
+				
+				#for the first value
+				if kl == 0:
+					shiftnum=shiftnuminit
 
 				#plotting the error bar with x position shifted
 				ax.errorbar(np.power(10,self.momratsbins[kl]+shiftnum),meds[kl],yerr=np.array([[err25],[err975]]),fmt='s',color=colour)
 
 		#plotting value to go in the legend
-		plt.plot(np.power(10,self.momratsbins[kl]+shiftnum),meds[kl],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m')
+		plt.plot(np.power(10,self.momratsbins[0]+shiftnuminit),meds[0],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m, gradient: '+str(gradient))
 	
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#calculating the weighted least squares values for each different distance and moment bin
 	def weightedls(self):
+		#changed this to work in the log domain rather than the normal domain
 		#from scipy.stats.distributions.chi2 import sf as chi2sf #python3 version
 		from scipy.stats import chisqprob as chi2sf #python 2.7 version
 		
@@ -1606,9 +1623,9 @@ class reps:
 		#we want to calculate the weighted least squares fit of each distance
 		#bin to each of the 1/3 1/6 relations.
 		#first need to calculate the relations for the moment bins that I actually use
-		thirdrely = np.power(np.power(10,self.momratsbins),1./3.)
-		sixthrely = np.power(np.power(10,self.momratsbins),1./6.)
-		twelfthrely = np.power(np.power(10,self.momratsbins),1./12.)
+		thirdrely = np.power(self.momratsbins,1./3.)
+		sixthrely = np.power(self.momratsbins,1./6.)
+		twelfthrely = np.power(self.momratsbins,1./12.)
 		
 		#setting up empty array to save the results of wls in for each distance bins and each relation
 		wlsarr = np.empty([3,len(self.distbins)])
@@ -1621,6 +1638,7 @@ class reps:
 			#finding the mode/median trrats for the distance/moment bins
 			meds = self.modefunc(np.log10(self.momrats[distlocs]),np.log10(self.trrats[distlocs]),self.momratsbins,getmode=True)
 			meds = np.power(10,meds)#getting the value out of log
+			logmeds = np.log10(meds)
 			
 			#grabbing the uncertainties for all the moment ratios bins
 			tempuncerts = np.sort(self.ratiouncert[:,jk])
@@ -1635,9 +1653,9 @@ class reps:
 				weights.append(1./np.nanvar(reluncert))
 			
 			#now calculating the weighted least squares, or specifically the chi squared statistic
-			thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
-			sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
-			twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
+			thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(logmeds,thirdrely),2.)))
+			sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(logmeds,sixthrely),2.)))
+			twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(logmeds,twelfthrely),2.)))
 			
 			#not sure if I need to do this division by the number of values - doesn't appear in the textbook
 			#thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
@@ -1984,6 +2002,7 @@ class reps:
 		#looping through the number of times to estimate
 		pairuncert = np.empty([numruns,len(mombins)])
 		ratiouncert = np.empty([numruns,len(self.distbins),len(self.momratsbins)])
+		gradientarr = np.empty([numruns,len(self.distbins)])
 		nevtsav = np.empty([numruns,nevts])
 		for i in range(numruns):
 			print('Bootstrap run '+str(i+1)+' of '+str(numruns))
@@ -2009,6 +2028,7 @@ class reps:
 
 			#setting up empty array to save the results for the medians
 			temparr = np.empty([len(self.distbins),len(self.momratsbins)])
+			gradarr = np.empty([len(self.distbins)])
 
 			#now calculating the medians/modes for the ratios in moment bins
 			for ij in range(len(self.distbins)-1):
@@ -2019,6 +2039,10 @@ class reps:
 				meds = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),self.momratsbins)
 				meds = np.power(10,meds)#getting the value out of log
 				
+				#calculating the gradient of the results
+				logmeds = np.log10(meds)
+				gradient, c = np.polyfit(self.momratsbins[np.isfinite(logmeds)],logmeds[np.isfinite(logmeds)],1)
+				gradarr[ij] = gradient
 				
 				temparr[ij] = meds
 
@@ -2027,15 +2051,22 @@ class reps:
 			medswholecat = self.modefunc(np.log10(momrats2[distlocs]),np.log10(trrats2[distlocs]),self.momratsbins)
 			medswholecat = np.power(10,medswholecat)
 			temparr[-1] = medswholecat
+			
+			#and grabbing the gradient which is effectively the power M0
+			logmeds = np.log10(medswholecat)
+			gradient, c = np.polyfit(self.momratsbins[np.isfinite(logmeds)],logmeds[np.isfinite(logmeds)],1)
+			gradarr[-1] = gradient
 
 			#saving the final results
 			pairuncert[i] = medtims2
 			ratiouncert[i] = temparr
+			gradientarr[i] = gradarr
 
 
 		self.pairuncert = pairuncert
 		self.ratiouncert = ratiouncert
 		self.nevtsav = nevtsav
+		self.gradientarr = gradarr
 
 
 	#------------------------------------------------------------------------------------------------------------------------------------#
