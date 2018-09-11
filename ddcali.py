@@ -587,7 +587,7 @@ class reps:
 		mombins = np.arange(stval,enval,0.1)
 
 		#getting the mode of each bin
-		medtims = self.modefunc(savmomslog,savtims,mombins)
+		medtims = self.modefunc(savmomslog,savtims,mombins,setbins=False)
 
 		#finding locations where medtims is not nan
 		locs2 = np.where(np.isfinite(medtims)==True)
@@ -896,9 +896,72 @@ class reps:
 
 		return allseqlocs			
 
+	#-----------------------------------------------------------------------------------------------------------------------#
+	#function to identify sequences and identify which events are in which sequences
+	def identeventseq(self,trinfo=None,returnvals=False):
+		#looping through each of the first events
+		if trinfo is None:
+			evtcs = self.trinfo["evtclist"]
+			glocs = self.trinfo["gloclist"]
+		else:
+			evtcs = trinfo["evtclist"]
+			glocs = trinfo["gloclist"]
+		
+		#setting up empty array for saving each of the sequences in
+		allseqlocs = []
+		
+		#looping through each pair of eqs
+		for i in range(len(evtcs)):
+			#setting up list to save a sequence in
+			seqlocs = []
+			seqlocs.append(evtcs[i])
+			seqlocs.append(glocs[i])
 
+			#temporary check variable for looking for the next value in the sequence
+			tempcheck = glocs[i]
+			locs = [10,10]
 
+			#while the sequence continues, keep checking for the sequence to continue
+			while len(locs) != 0:
+				#looking for next continuation of sequence
+				locs = np.argwhere(evtcs==tempcheck).flatten()
+				if len(locs) != 0:
+					seqlocs.append(glocs[locs[0]])
+					tempcheck = glocs[locs[0]]
 
+			#save the whole sequence to the array
+			#but first cheching the sequence isn't a subset of a sequence we've already identified
+			dontsave = False
+			for j in range(len(allseqlocs)):
+				if set(seqlocs).issubset(allseqlocs[j]):
+					dontsave = True
+
+			#and only saving if it isn't a subset of a previous result
+			if dontsave is False:
+				allseqlocs.append(seqlocs)
+		
+		
+		#now identifying which events go into which number of sequences
+		#setting up empty list of lists for saving the sequences
+		seqnums = [[] for i in range(len(evtcs))]
+		
+		#looping through each event
+		for i in range(len(evtcs)):
+			#looping through each sequence
+			for j in range(len(allseqlocs)):
+				#now checking the events in the sequence
+				for val in allseqlocs[j]:
+					#if the event appears in the sequence, then
+					#save the sequence number to the list of lists
+					if val == evtcs[i]:
+						seqnums[i].append(j)
+		
+		#saving this to the class so I can use it if I want
+		if returnvals is False:
+			self.allseqlocs = allseqlocs
+			self.seqnums = seqnums
+		elif returnvals is True:
+			return allseqlocs,seqnums
 
 	#-----------------------------------------------------------------------------------------------------------------------#
 	#calculating the time to next earthquake within one radii
@@ -991,11 +1054,11 @@ class reps:
 				#now with these locations calculate the difference in seconds between the eq times
 				times  = np.subtract(evdates[glocs[0]],evdates[evtc])
 
-
+				
 				#saving the values which I plot
 				#for jj in range(len(times)):
-				savrups.append(evrups[evtc])
-				savmoms.append(evmoms[evtc])
+				savrups.append(np.median([evrups[evtc],evrups[glocs[0]]]))
+				savmoms.append(np.median([evmoms[evtc],evmoms[glocs[0]]]))
 				savtims.append(times.total_seconds())
 				sav1mags.append(evmags[evtc])
 				sav1lats.append(evlats[evtc])
@@ -1017,7 +1080,7 @@ class reps:
 		
 
 
-
+		
 		savrups = np.array(savrups)
 		savtims = np.array(savtims)
 		savmags = np.array(sav1mags)
@@ -1034,15 +1097,15 @@ class reps:
 		stval = round(np.log10(np.min(savrups))-0.05,1)
 		enval = round(np.log10(np.max(savrups))+0.05,1)
 		rupbins = np.arange(stval,enval,0.1)
-
-
-
+		
+		
+		
 		#log10 of savrups
 		savrupslog = np.round(np.log10(savrups),1)
 
 		#finding ruplengths in the bins
 		#version saving the mode rather than the median
-		medtims = self.modefunc(savrupslog,savtims,rupbins)
+		medtims = self.modefunc(savrupslog,savtims,rupbins,setbins=False)
 
 		trinfo = {"evtclist":evtclist,"gloclist":gloclist,"savrups":savrups, "savmoms":savmoms, "savtims":savtims, "savmags":savmags,
 			"savlats":savlats,"savlons":savlons,"eachrup":eachrup, "medtims":medtims, "rupbins":rupbins,"radlats":pradlats,
@@ -1131,7 +1194,7 @@ class reps:
 					#saving the values which I plot
 					#for jj in range(len(times)):
 					savrups.append(evrups[evtc])
-					savmoms.append(evmoms[evtc])
+					savmoms.append(np.median(evmoms[evtc],evmoms[glocs[0]]))
 					savtims.append(times.total_seconds())
 					sav1mags.append(evmags[evtc])
 					sav1lats.append(evlats[evtc])
@@ -1173,7 +1236,7 @@ class reps:
 
 		#finding ruplengths in the bins
 		#version saving the mode rather than the median
-		medtims = self.modefunc(savrupslog,savtims,rupbins)
+		medtims = self.modefunc(savrupslog,savtims,rupbins,setbins=False)
 
 		trinfo = {"evtclist":evtclist,"gloclist":gloclist,"savrups":savrups, "savmoms":savmoms, "savtims":savtims, "savmags":savmags,"savlats":savlats, 
 			"savlons":savlons,"eachrup":eachrup, "medtims":medtims, "rupbins":rupbins,"radlats":pradlats,"radlons":pradlons,"coslats":pcoslats}
@@ -1235,7 +1298,7 @@ class reps:
 		savrupslog = np.round(np.log10(savrups),1)
 
 		#getting medtims
-		medtims = self.modefunc(savrupslog,savtims,rupbins)
+		medtims = self.modefunc(savrupslog,savtims,rupbins,setbins=False)
 
 		#putting them into the dictionary
 		trinfo = {"evtclist":evtclist, "gloclist":gloclist,"savrups":savrups, 
@@ -1246,7 +1309,7 @@ class reps:
 
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#comparing the moment and recurrence time ratios for each earthquake pair
-	def momtrrats(self,ploton=False,trinfo=None,returnvals=False):
+	def momtrrats(self,ploton=False,trinfo=None,allseqlocs=None,seqnums=None,returnvals=False,checkseq=True):
 		
 		#pulling out some results I'm going to use
 		if trinfo is None:
@@ -1256,6 +1319,7 @@ class reps:
 			radlats = self.trinfo["radlats"]
 			radlons = self.trinfo["radlons"]
 			coslats = self.trinfo["coslats"]
+			evtcs = self.trinfo["evtclist"]
 		else:
 			savtims = trinfo["savtims"]
 			savmags = trinfo["savmags"]
@@ -1263,29 +1327,69 @@ class reps:
 			radlats = trinfo["radlats"]
 			radlons = trinfo["radlons"]
 			coslats = trinfo["coslats"]
+			evtcs = trinfo["evtclist"]
+			
+		if allseqlocs is None:
+			allseqlocs = self.allseqlocs
+		if seqnums is None:
+			seqnums = self.seqnums
 
 
 		#setting up empty lists
-		momrats = []
-		trrats = []
-		distbet = []
-		#mag1list = []
-		#mag2list = []
-		#now going through each moment and time, and computing the ratios
-		for i in range(len(savtims)):
-			#calculating ratios and distances
-			tmomrats = np.divide(savmoms[i],savmoms[i+1:])
-			ttrrats = np.divide(savtims[i],savtims[i+1:])
-			dists = self.distcalc(radlats[i],radlons[i],radlats[i+1:],radlons[i+1:],coslats[i],coslats[i+1:])
-			dists = np.multiply(dists,1000.) #to m
+		#for when we don't care whether the earthquakes are in sequences
+		if checkseq is False:
+			momrats = []
+			trrats = []
+			distbet = []
+			#mag1list = []
+			#mag2list = []
+			#now going through each moment and time, and computing the ratios
+			for i in range(len(savtims)):
+				#calculating ratios and distances
+				tmomrats = np.divide(savmoms[i],savmoms[i+1:])
+				ttrrats = np.divide(savtims[i],savtims[i+1:])
+				dists = self.distcalc(radlats[i],radlons[i],radlats[i+1:],radlons[i+1:],coslats[i],coslats[i+1:])
+				dists = np.multiply(dists,1000.) #to m
 
-			#saving to list
-			for j in range(len(tmomrats)):
-				momrats.append(tmomrats[j])
-				trrats.append(ttrrats[j])
-				distbet.append(dists[j])
-				#mag1list.append(savmags[i])
-				#mag2list.append(savmags[i+1+j])
+				#saving to list
+				for j in range(len(tmomrats)):
+					momrats.append(tmomrats[j])
+					trrats.append(ttrrats[j])
+					distbet.append(dists[j])
+					#mag1list.append(savmags[i])
+					#mag2list.append(savmags[i+1+j])
+		
+		#when we do want to check if the events are in sequences together
+		elif checkseq is True:
+			momrats = []
+			trrats = []
+			distbet = []
+			
+			#now going through each moment and time, and computing the ratios
+			for i in range(len(savtims)):
+				#calculating ratios and distances
+				tmomrats = np.divide(savmoms[i],savmoms[i+1:])
+				ttrrats = np.divide(savtims[i],savtims[i+1:])
+				dists = self.distcalc(radlats[i],radlons[i],radlats[i+1:],radlons[i+1:],coslats[i],coslats[i+1:])
+				dists = np.multiply(dists,1000.) #to m
+				
+				#grabbing the list of sequences this event is in
+				origseqs = np.array(seqnums[i])
+				
+				#saving to list
+				for j in range(len(tmomrats)):
+					#checking if the events are in a sequence together
+					#and if so, don't save their ratios
+					#checking if any of the sequence numbers are common
+					comseqs = np.intersect1d(origseqs,np.array(seqnums[i+1+j]))
+					
+					#only saving ratios if the events aren't in the same sequences
+					if len(comseqs) == 0:
+						momrats.append(tmomrats[j])
+						trrats.append(ttrrats[j])
+						distbet.append(dists[j])
+					
+					
 
 		
 		#plotting histograms of results in distance bins if option is on
@@ -1467,7 +1571,7 @@ class reps:
 				#making the errors for plotting
 				err25 = np.abs(meds[kl]-tempuncerts[lowper])
 				err975 = np.abs(meds[kl]-tempuncerts[highper])
-				self.codeint(locals(),globals())
+				#self.codeint(locals(),globals())
 				#checking for problems with the whole catalogue error
 				#if wholecat is True:
 				#	codeint(locals(),globals())
@@ -1534,22 +1638,22 @@ class reps:
 			thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
 			sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
 			twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
-			thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
-			sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
-			twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
 			
-			#if jk == 2:
-			#	self.codeint(locals(),globals())
+			#not sure if I need to do this division by the number of values - doesn't appear in the textbook
+			#thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
+			#sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
+			#twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
+			
 			
 			#saving the results to an array
-			wlsarr[0,jk] = thirdwls
-			wlsarr[1,jk] = sixthwls
-			wlsarr[2,jk] = twelfthwls
+			wlsarr[0,jk] = thirdwrest
+			wlsarr[1,jk] = sixthwrest
+			wlsarr[2,jk] = twelfthwrest
 			
 			#and calculating the pvalue and saving it
-			pvalsarr[0,jk] = chi2sf(thirdwls,len(meds)-1)
-			pvalsarr[1,jk] = chi2sf(sixthwls,len(meds)-1)
-			pvalsarr[2,jk] = chi2sf(twelfthwls,len(meds)-1)
+			pvalsarr[0,jk] = chi2sf(thirdwrest,len(meds)-1)
+			pvalsarr[1,jk] = chi2sf(sixthwrest,len(meds)-1)
+			pvalsarr[2,jk] = chi2sf(twelfthwrest,len(meds)-1)
 		
 		#now doing the same thing for the entire catalogue using the maximum distance bin
 		distlocs = np.argwhere(np.logical_and(self.distbet>=0.0,self.distbet<5000000.)==True).flatten()
@@ -1574,18 +1678,22 @@ class reps:
 		thirdwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,thirdrely),2.)))
 		sixthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,sixthrely),2.)))
 		twelfthwrest = np.nansum(np.multiply(weights,np.power(np.subtract(meds,twelfthrely),2.)))
-		thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
-		sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
-		twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
-
-		#saving the results to an array
-		wlsarr[0,-1] = thirdwls
-		wlsarr[1,-1] = sixthwls
-		wlsarr[2,-1] = twelfthwls
-		pvalsarr[0,-1] = chi2sf(thirdwls,len(meds)-1)
-		pvalsarr[1,-1] = chi2sf(sixthwls,len(meds)-1)
-		pvalsarr[2,-1] = chi2sf(twelfthwls,len(meds)-1)
 		
+		
+		#not sure if I need to do this division by the number of values - doesn't appear in the textbook
+		#thirdwls = np.multiply((1./len(self.momratsbins)),thirdwrest)
+		#sixthwls = np.multiply((1./len(self.momratsbins)),sixthwrest)
+		#twelfthwls = np.multiply((1./len(self.momratsbins)),twelfthwrest)
+		
+		
+		#saving the results to an array
+		wlsarr[0,-1] = thirdwrest
+		wlsarr[1,-1] = sixthwrest
+		wlsarr[2,-1] = twelfthwrest
+		pvalsarr[0,-1] = chi2sf(thirdwrest,len(meds)-1)
+		pvalsarr[1,-1] = chi2sf(sixthwrest,len(meds)-1)
+		pvalsarr[2,-1] = chi2sf(twelfthwrest,len(meds)-1)
+		self.codeint(locals(),globals())
 		self.wlsarr = wlsarr
 		self.pvalsarr = pvalsarr
 	
@@ -1696,7 +1804,7 @@ class reps:
 		mombins = np.arange(stval,enval,0.5)
 
 		#getting the mode of each bin
-		medtims = self.modefunc(savmomslog,savtims,mombins)
+		medtims = self.modefunc(savmomslog,savtims,mombins,setbins=False)
 
 		#finding locations where medtims is not nan
 		locs2 = np.where(np.isfinite(medtims)==True)[0]
@@ -1783,7 +1891,7 @@ class reps:
 		return fig
 	#------------------------------------------------------------------------------------------------------------------------------------#
 	#for grabbing the mode of a dataset
-	def modefunc(self,var1,var2,var1bins,getmode=True,ploton=False):
+	def modefunc(self,var1,var2,var1bins,getmode=True,ploton=False,setbins=True):
 		#THIS CODE ASSUMES LOG BINS AND LOG VAR1
 		#getting mode results
 		moderes = []
@@ -1797,39 +1905,54 @@ class reps:
 			#finding values that sit in the bins
 			bindiff = np.subtract(var1,var1bins[val])
 			dlocs = np.argwhere(np.logical_and(bindiff<=halfwidth,bindiff>-(halfwidth-0.000000000000000000000000001))).flatten()
-
-			#get the histogram of the data set so we can get the mode
-			tn,tbins = np.histogram(var2[dlocs],bins=40)
-
-			#find the maximum location of the bins
-			tloc = np.argwhere(tn==np.max(tn)).flatten()
-
-
-			#testing for when there are no data points
-			if tn[tloc[0]] != 0:
-				#now finding the mode of the histogram
-				tmode = np.median([tbins[tloc],tbins[tloc+1]])
-			else: #when there are no data points
-				tmode = np.nan
-
-			#and if there is only one data point then take that value
-			if len(dlocs) == 1:
-				tmode = var2[dlocs[0]]
 			
-			#testing for where the mode is over several bins
-			if len(tloc) > 1:
-				#just take the median over the bins to pick a middle value
-				tmode = np.median([tbins[tloc[0]],tbins[tloc[-1]+1]])
+			#checking if there are any results within these bins
+			if len(dlocs) != 0:
+				#defining the bins to use with a spacing in the log domain of 0.1, from the minimum data value to the maximum data value
+				if setbins is True:
+					
+					minbin = round(np.min(var2[dlocs])-0.1,1)
+					maxbin = round(np.max(var2[dlocs])+0.1,1)
+					#self.codeint(locals(),globals())
+					valbins = np.arange(minbin,maxbin,0.1)
+				#but also having the option to just use a default number of bins for the none ratio plots
+				else:
+					valbins = 50
 				
-			#plotting for testing
-			#if ploton is True:	
-			#	plt.figure(100)
-			#	plt.hist(var2[dlocs],bins=40)
-			#	plt.plot([np.median(var2[dlocs]),np.median(var2[dlocs])],[0.,10],label='median')
-			#	plt.plot([tmode,tmode],[0.,10],label='mode')
-			#	plt.legend(loc='upper right')
-			#	plt.show()
+				#get the histogram of the data set so we can get the mode
+				#tn,tbins = np.histogram(var2[dlocs],bins=valbins)
+				tn,tbins = np.histogram(var2[dlocs],bins='fd')
 
+				#find the maximum location of the bins
+				tloc = np.argwhere(tn==np.max(tn)).flatten()
+
+
+				#testing for when there are no data points
+				if tn[tloc[0]] != 0:
+					#now finding the mode of the histogram
+					tmode = np.median([tbins[tloc],tbins[tloc+1]])
+				else: #when there are no data points
+					tmode = np.nan
+
+				#and if there is only one data point then take that value
+				if len(dlocs) == 1:
+					tmode = var2[dlocs[0]]
+
+				#testing for where the mode is over several bins
+				if len(tloc) > 1:
+					#just take the median over the bins to pick a middle value
+					tmode = np.median([tbins[tloc[0]],tbins[tloc[-1]+1]])
+
+				#plotting for testing
+				#if ploton is True:	
+				#	plt.figure(100)
+				#	plt.hist(var2[dlocs],bins=40)
+				#	plt.plot([np.median(var2[dlocs]),np.median(var2[dlocs])],[0.,10],label='median')
+				#	plt.plot([tmode,tmode],[0.,10],label='mode')
+				#	plt.legend(loc='upper right')
+				#	plt.show()
+			else:
+				tmode = np.nan
 
 			#either taking the mode of the median
 			if getmode is True:
@@ -1878,10 +2001,11 @@ class reps:
 
 			#now redoing the time to next earthquake and ratios calculations
 			trinfo2 = self.calctr(evinfo=evinfo2,returnvals=True)
-			momrats2, trrats2, distbet2 = self.momtrrats(trinfo=trinfo2,returnvals=True)
+			tallseqlocs, tseqnums = self.identeventseq(trinfo=trinfo2,returnvals=True)
+			momrats2, trrats2, distbet2 = self.momtrrats(trinfo=trinfo2,allseqlocs=tallseqlocs,seqnums=tseqnums,returnvals=True)
 
 			#calculating the medians/modes for the moment bins using the newly sampled catalogue
-			medtims2 = self.modefunc(np.log10(trinfo2["savmoms"]),trinfo2["savtims"],mombins)
+			medtims2 = self.modefunc(np.log10(trinfo2["savmoms"]),trinfo2["savtims"],mombins,setbins=False)
 
 			#setting up empty array to save the results for the medians
 			temparr = np.empty([len(self.distbins),len(self.momratsbins)])
