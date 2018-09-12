@@ -2066,7 +2066,7 @@ class reps:
 		self.pairuncert = pairuncert
 		self.ratiouncert = ratiouncert
 		self.nevtsav = nevtsav
-		self.gradientarr = gradarr
+		self.gradientarr = gradientarr
 
 
 	#------------------------------------------------------------------------------------------------------------------------------------#
