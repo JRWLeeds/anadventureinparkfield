@@ -1373,21 +1373,20 @@ class reps:
 				dists = self.distcalc(radlats[i],radlons[i],radlats[i+1:],radlons[i+1:],coslats[i],coslats[i+1:])
 				dists = np.multiply(dists,1000.) #to m
 				
-				#grabbing the list of sequences this event is in
-				origseqs = np.array(seqnums[i])
 				
 				#saving to list
 				for j in range(len(tmomrats)):
 					#checking if the events are in a sequence together
 					#and if so, don't save their ratios
 					#checking if any of the sequence numbers are common
-					comseqs = np.intersect1d(origseqs,np.array(seqnums[i+1+j]))
+					comseqs = list(set(seqnums[i])&set(seqnums[i+1+j]))
 					
 					#only saving ratios if the events aren't in the same sequences
 					if len(comseqs) == 0:
 						momrats.append(tmomrats[j])
 						trrats.append(ttrrats[j])
 						distbet.append(dists[j])
+					
 					
 					
 
@@ -1609,7 +1608,7 @@ class reps:
 				ax.errorbar(np.power(10,self.momratsbins[kl]+shiftnum),meds[kl],yerr=np.array([[err25],[err975]]),fmt='s',color=colour)
 
 		#plotting value to go in the legend
-		plt.plot(np.power(10,self.momratsbins[0]+shiftnuminit),meds[0],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m, gradient: '+str(gradient))
+		plt.plot(np.power(10,self.momratsbins[0]+shiftnuminit),meds[0],'s',color=colour,label='Dists '+str(distbins[ij])+' - '+str(distbins[ij+1])+' m, gradient: '+str(round(gradient,2)))
 	
 	#-----------------------------------------------------------------------------------------------------------------------------------#
 	#calculating the weighted least squares values for each different distance and moment bin
